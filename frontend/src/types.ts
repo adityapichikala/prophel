@@ -1,7 +1,10 @@
+export type IncidentStatus = 'DETECTED' | 'ACKNOWLEDGED' | 'CREW_ASSIGNED' | 'RESOLVED' | 'VERIFIED' | 'CLOSED';
+export type FaultType = 'SPAN_FAULT' | 'DT_FAULT' | 'FEEDER_FAULT' | 'DEAD_SENSOR';
+
 export interface Incident {
   incident_id: string;
-  status: 'DETECTED' | 'ACKNOWLEDGED' | 'CREW_ASSIGNED' | 'RESOLVED' | 'VERIFIED' | 'CLOSED';
-  fault_type: 'SPAN_FAULT' | 'DT_FAULT' | 'FEEDER_FAULT' | 'DEAD_SENSOR';
+  status: IncidentStatus;
+  fault_type: FaultType;
   target_id: string;
   substation_id: string;
   feeder_id: string;
