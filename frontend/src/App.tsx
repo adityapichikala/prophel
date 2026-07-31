@@ -1,13 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, ShieldCheck, Activity, MapPin, Zap, RefreshCw, CheckCircle, Wrench } from 'lucide-react';
-import { Incident } from './types';
+import { AlertTriangle, ShieldCheck, Activity, MapPin, Zap, RefreshCw, Wrench } from 'lucide-react';
+
+export interface Incident {
+  incident_id: string;
+  status: 'DETECTED' | 'ACKNOWLEDGED' | 'CREW_ASSIGNED' | 'RESOLVED' | 'VERIFIED' | 'CLOSED';
+  fault_type: 'SPAN_FAULT' | 'DT_FAULT' | 'FEEDER_FAULT' | 'DEAD_SENSOR';
+  target_id: string;
+  substation_id: string;
+  feeder_id: string;
+  dt_id: string;
+  pincode: string;
+  lat: number;
+  lon: number;
+  affected_pole_count: number;
+  confidence: number;
+  confidence_reasoning: string;
+  topology_known: boolean;
+  affected_pole_ids: string[];
+  suppressed_by_scheduled_outage?: string;
+  span_range?: string;
+}
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
 export const App: React.FC = () => {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  const [activeTab, setActiveTab] = useState<'console' | 'simulator' | 'docs'>('console');
+  const [activeTab, setActiveTab] = useState<'console' | 'simulator'>('console');
   const [simulationStatus, setSimulationStatus] = useState<string>('');
 
   const fetchIncidents = async () => {
@@ -58,16 +77,8 @@ export const App: React.FC = () => {
     fetchIncidents();
   };
 
-  const handleRepairFault = async (id: string) => {
-    setSimulationStatus(`Restoring power for ${id}...`);
-    await fetch(`${API_BASE}/simulator/repair-fault?incident_id=${id}`, { method: 'POST' });
-    setSimulationStatus(`Power Restored & Ticket Auto-Verified!`);
-    fetchIncidents();
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col">
-      {/* 2 a.m. High-Contrast Operator Header */}
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-lg">
         <div className="flex items-center space-x-3">
           <div className="bg-amber-500 text-slate-950 p-2 rounded-lg font-bold flex items-center justify-center">
@@ -81,7 +92,6 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
         <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
           <button
             onClick={() => setActiveTab('console')}
@@ -102,10 +112,8 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content Area */}
       {activeTab === 'console' && (
         <div className="flex-1 grid grid-cols-12 gap-6 p-6 overflow-hidden">
-          {/* Incident Feed Column */}
           <div className="col-span-5 bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
               <h2 className="font-bold text-slate-200 flex items-center gap-2">
@@ -176,7 +184,6 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Incident Detail / Map Display Column */}
           <div className="col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col">
             <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <Activity className="w-5 h-5 text-amber-400" /> Incident Location & Topology Details
@@ -223,7 +230,6 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Simulator Tab */}
       {activeTab === 'simulator' && (
         <div className="p-8 max-w-4xl mx-auto space-y-6">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
