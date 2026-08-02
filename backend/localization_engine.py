@@ -1,15 +1,13 @@
 """
-Deterministic Graph Fault Localization Engine.
+Deterministic Graph Fault Localization Engine for Karnataka SPDB.
 
-1. Walk each DT tree and find boundaries (live parent whose child is dark).
-2. Group all dark poles downstream into ONE incident (no crying wolf).
-3. Detect DT-level faults (>90% dark under DT) & Feeder-level faults (>80% dark across DTs).
-4. Filter Dead Sensors: isolated dark pole with live children -> marked SUSPECTED_SENSOR, NO incident opened.
-5. Scheduled Outage Matching: suppress incidents matching active/slop scheduled outages with audit reason.
-6. Simultaneous Independent Faults: distant boundaries -> separate tickets.
-7. Human-Readable Confidence Reasoning:
-   - High: recorded topology, clear boundary.
-   - Medium: inferred geometric MST topology or gap in device coverage (reports range).
+Core Responsibilities:
+1. Walk tree graph per Distribution Transformer (DT) to identify live/dark boundaries.
+2. Group all dark poles downstream of a boundary into ONE single incident (anti-cry-wolf).
+3. Detect whole-DT blackouts (>90% dark under DT) & Feeder blackouts.
+4. Filter isolated dead sensors (isolated dark pole whose children are live).
+5. Suppress active scheduled maintenance outages (+40 min overrun slop) with audit logs.
+6. Provide plain-language human-readable confidence reasoning.
 """
 
 from dataclasses import dataclass, field
@@ -19,6 +17,7 @@ from backend.topology_builder import Tree, TopologyEdge
 
 @dataclass
 class ScheduledOutageRule:
+    """Represents a scheduled maintenance shutdown from the outage feed."""
     id: str
     scope: str  # 'feeder' or 'dt'
     target_id: str
@@ -28,8 +27,9 @@ class ScheduledOutageRule:
 
 @dataclass
 class IncidentOutput:
+    """Structured output for a detected fault incident."""
     incident_id: str
-    status: str  # 'DETECTED'
+    status: str  # 'DETECTED', 'ACKNOWLEDGED', 'RESOLVED', 'VERIFIED', 'CLOSED'
     fault_type: str  # 'SPAN_FAULT', 'DT_FAULT', 'FEEDER_FAULT'
     target_id: str  # e.g., 'P-101 -> P-102' or 'D-0112'
     feeder_id: str
@@ -46,6 +46,10 @@ class IncidentOutput:
     span_range: Optional[str] = None
 
 class LocalizationEngine:
+    """
+    Graph Traversal Engine for Outage Detection & Fault Localization.
+    Operating on pure network state and graph topology without I/O side effects.
+    """
     def __init__(self):
         pass
 
@@ -57,6 +61,13 @@ class LocalizationEngine:
         scheduled_outages: List[ScheduledOutageRule] = None,
         now: Optional[datetime] = None
     ) -> List[IncidentOutput]:
+        """
+        Main localization entry point:
+        Step 1: Extract all dark poles from pole_states.
+        Step 2: Reject isolated dead sensors (dark pole whose children are live).
+        Step 3: Match against active scheduled outages (+40m overrun buffer).
+        Step 4: Traverse trees to locate live/dark boundaries and group downstream poles into single tickets.
+        """
         if not scheduled_outages:
             scheduled_outages = []
         if not now:
@@ -64,13 +75,14 @@ class LocalizationEngine:
 
         incidents: List[IncidentOutput] = []
 
-        # Identify all dark poles
+        # Step 1: Identify all dark poles reporting energized == False
         dark_poles: Set[str] = {pid for pid, energized in pole_states.items() if not energized}
 
         if not dark_poles:
             return incidents
 
-        # Filter out Dead Sensors (Isolated dark pole with live children)
+        # Step 2: Filter out Dead Sensors (Isolated dark pole with live children)
+        # Reason: A line fault cuts power downstream. If children are live, the parent sensor itself is faulty.
         real_dark_poles = set()
         for pid in dark_poles:
             dt_id = pole_metadata.get(pid, {}).get("dt_id")
@@ -87,7 +99,7 @@ class LocalizationEngine:
         if not real_dark_poles:
             return incidents
 
-        # Check Active Scheduled Outages (with 40-min overrun slop)
+        # Step 3: Check Active Scheduled Outages (with 40-min overrun slop)
         active_so_feeders: Set[str] = set()
         active_so_dts: Set[str] = set()
         so_map: Dict[str, ScheduledOutageRule] = {}
@@ -102,7 +114,7 @@ class LocalizationEngine:
                     active_so_dts.add(so.target_id)
                 so_map[so.target_id] = so
 
-        # Evaluate DT & Span Level Outages
+        # Step 4: Evaluate DT & Span Level Outages per DT Tree
         for dt_id, tree in trees.items():
             dt_poles = list(tree.parent_map.keys())
             if not dt_poles:
@@ -117,7 +129,7 @@ class LocalizationEngine:
             dt_lat = pole_metadata.get(dt_poles[0], {}).get("lat", 12.9678)
             dt_lon = pole_metadata.get(dt_poles[0], {}).get("lon", 77.5951)
 
-            # Check if DT is under scheduled outage
+            # Check if DT is under scheduled outage window
             so_suppression = None
             if feeder_id in active_so_feeders:
                 so = so_map[feeder_id]
@@ -196,6 +208,7 @@ class LocalizationEngine:
         return incidents
 
     def _collect_subtree(self, root_id: str, tree: Tree, dark_set: Set[str]) -> Set[str]:
+        """Traverses downstream tree nodes recursively to collect all dark poles under a boundary."""
         collected = {root_id}
         stack = [root_id]
         while stack:
