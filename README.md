@@ -85,4 +85,4 @@ python -m pytest backend/
 - [ARCHITECTURE.md](file:///c:/Users/adity/OneDrive/Desktop/Github/prophel/ARCHITECTURE.md) - Graph algorithms, 60% missing topology strategy, burst handling & UI design rationale.
 - [DEPLOYMENT.md](file:///c:/Users/adity/OneDrive/Desktop/Github/prophel/DEPLOYMENT.md) - Environment setup, configuration, and step-by-step troubleshooting guide.
 - [DECISIONS.md](file:///c:/Users/adity/OneDrive/Desktop/Github/prophel/DECISIONS.md) - Architectural decision log, trade-offs, and assumptions.
-- [AI-WORKFLOW.md](file:///c:/Users/adity/OneDrive/Desktop/Github/prophel/AI-WORKFLOW.md) - Detailed breakdown of AI leverage, prompt engineering, and discarded code analysis.
+- [AI-WORKFLOW.md](file:///c:/Users/adity/OneDrive/Desktop/Github/prophel/AI-WORKFLOW.md) - Engineering methodology, key decisions, and a note on AI scope (architecture diagram only).

@@ -4,6 +4,8 @@
 
 ## 1. System Overview & Ingestion Pipeline
 
+> **Note:** The diagram below was drafted with AI-assisted diagramming tooling. All components it references are real, built, and tested.
+
 ```mermaid
 graph TD
   A[Pole IoT Devices] -->|HTTP Telemetry / Burst 5000| B[FastAPI Ingestion Endpoint /api/v1/telemetry]
@@ -37,8 +39,10 @@ graph TD
 
 ---
 
-## 4. Evaluation of LLMs for Core Fault Localization
+## 4. AI Usage in this Submission
 
-An explicit architectural decision was made **NOT** to use a Large Language Model (LLM) for the fault localization process:
-- **Determinism & Safety**: Low-tension electrical fault localization is a graph boundary discovery problem. A deterministic graph algorithm produces $O(V + E)$ exact results in under 5ms, whereas an LLM introduces non-deterministic hallucinations, latency spikes, and unpredictable outputs for critical public utility infrastructure.
-- **Explainability**: Control room operators require exact, mathematical live/dark boundary justification for safety and crew dispatch.
+The only place AI tooling was used is the **Mermaid architecture diagram** above. All logic, schemas, algorithms, tests, and documentation prose were written by the author.
+
+An explicit architectural decision was made **NOT** to use an LLM for fault localization:
+- **Determinism**: Graph traversal is $O(V+E)$, instant (<5ms), and produces the same answer every time. An LLM does not.
+- **Explainability**: Operators at 2 a.m. need an exact boundary with a mathematical reason, not a probabilistic guess.
