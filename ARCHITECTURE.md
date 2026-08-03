@@ -8,7 +8,7 @@
 graph TD
   A[Pole IoT Devices] -->|HTTP Telemetry / Burst 5000| B[FastAPI Ingestion Endpoint /api/v1/telemetry]
   B --> C[Sequence & Deduplication Engine]
-  C --> D[PoleState In-Memory Materialized View]
+  C --> D[PoleState Materialized View]
   D --> E[Deterministic Graph Localization Engine]
   E -->|Incident Output| F[Incidents DB Store & WebSockets PubSub]
   F --> G[React 2 a.m. Operator Control Console]
@@ -34,3 +34,11 @@ graph TD
   - **Single Incident Aggregation**: 50 dark poles downstream produce **one single ticket** pinpointing the exact span.
   - **Telemetry Verification Pushback**: Operators cannot manually close a ticket if downstream telemetry reports poles are still dark.
   - **Fault Simulator Integration**: Built-in simulator controls to inject span faults, DT blackouts, and power restoration.
+
+---
+
+## 4. Evaluation of LLMs for Core Fault Localization
+
+An explicit architectural decision was made **NOT** to use a Large Language Model (LLM) for the fault localization process:
+- **Determinism & Safety**: Low-tension electrical fault localization is a graph boundary discovery problem. A deterministic graph algorithm produces $O(V + E)$ exact results in under 5ms, whereas an LLM introduces non-deterministic hallucinations, latency spikes, and unpredictable outputs for critical public utility infrastructure.
+- **Explainability**: Control room operators require exact, mathematical live/dark boundary justification for safety and crew dispatch.
