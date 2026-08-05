@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
     for s in states:
         ingest_engine.states[s.pole_id] = s
 
-    print(f"✅ Seeding Complete: {len(dts)} DTs, {len(poles)} Poles, {len(trees)} Trees loaded.")
+    print(f"[OK] Seeding Complete: {len(dts)} DTs, {len(poles)} Poles, {len(trees)} Trees loaded.")
     yield
 
 app = FastAPI(
@@ -87,6 +87,9 @@ def run_localization_eval():
         scheduled_outages=scheduled_outages_db
     )
     for inc in results:
+        if inc.incident_id in incidents_db:
+            # Preserve lifecycle status — don't overwrite ACKNOWLEDGED / RESOLVED / VERIFIED
+            inc.status = incidents_db[inc.incident_id].status
         incidents_db[inc.incident_id] = inc
     return results
 

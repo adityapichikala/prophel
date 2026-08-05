@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, ShieldCheck, Activity, MapPin, Zap, RefreshCw, Wrench } from 'lucide-react';
+import './index.css';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Incident {
   incident_id: string;
@@ -23,18 +25,23 @@ export interface Incident {
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
+// ─── App ──────────────────────────────────────────────────────────────────────
+
 export const App: React.FC = () => {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [activeTab, setActiveTab] = useState<'console' | 'simulator'>('console');
   const [simulationStatus, setSimulationStatus] = useState<string>('');
 
+  // ── Data fetching ────────────────────────────────────────────────────────
+
   const fetchIncidents = async () => {
     try {
       const res = await fetch(`${API_BASE}/incidents`);
       if (res.ok) {
-        const data = await res.json();
+        const data: Incident[] = await res.json();
         setIncidents(data);
+        // Auto-select the first incident when the list first populates
         if (data.length > 0 && !selectedIncident) {
           setSelectedIncident(data[0]);
         }
@@ -44,11 +51,14 @@ export const App: React.FC = () => {
     }
   };
 
+  // Poll every 3 seconds for real-time updates
   useEffect(() => {
     fetchIncidents();
     const interval = setInterval(fetchIncidents, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // ── Ticket lifecycle actions ─────────────────────────────────────────────
 
   const handleAcknowledge = async (id: string) => {
     await fetch(`${API_BASE}/incidents/${id}/acknowledge`, { method: 'POST' });
@@ -65,117 +75,126 @@ export const App: React.FC = () => {
         alert('✅ Ticket Verified and Auto-Closed by Telemetry!');
         fetchIncidents();
       }
-    } catch (err) {
+    } catch {
       alert('Resolution failed!');
     }
   };
 
+  // ── Fault injection (simulator tab) ─────────────────────────────────────
+
   const handleInjectFault = async (faultType: string, targetId: string) => {
-    setSimulationStatus(`Injecting ${faultType} on ${targetId}...`);
-    await fetch(`${API_BASE}/simulator/inject-fault?fault_type=${faultType}&target_id=${targetId}`, { method: 'POST' });
-    setSimulationStatus(`Fault Injected! Evaluation complete.`);
+    setSimulationStatus(`⚡ Injecting ${faultType} on ${targetId}…`);
+    await fetch(
+      `${API_BASE}/simulator/inject-fault?fault_type=${faultType}&target_id=${targetId}`,
+      { method: 'POST' }
+    );
+    setSimulationStatus(`✅ Fault injected. Localization complete — check Operator Console.`);
     fetchIncidents();
   };
 
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col">
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-lg">
-        <div className="flex items-center space-x-3">
-          <div className="bg-amber-500 text-slate-950 p-2 rounded-lg font-bold flex items-center justify-center">
-            <Zap className="w-6 h-6 fill-current" />
-          </div>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#020617' }}>
+
+      {/* ── Header ── */}
+      <header className="header">
+        <div className="header-brand">
+          <div className="header-icon">⚡</div>
           <div>
-            <h1 className="text-xl font-extrabold tracking-wide text-white flex items-center gap-2">
-              KARNATAKA SPDB <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded border border-amber-500/30">SUBDIVISION 07</span>
+            <h1 className="header-title">
+              KARNATAKA SPDB
+              <span className="badge">SUBDIVISION 07</span>
             </h1>
-            <p className="text-xs text-slate-400">Low-Tension Fault Localization & Operator Control Console</p>
+            <p className="header-sub">Low-Tension Fault Localization &amp; Operator Control Console</p>
           </div>
         </div>
 
-        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+        {/* Tab switcher */}
+        <div className="tab-bar">
           <button
+            className={`tab-btn${activeTab === 'console' ? ' active' : ''}`}
             onClick={() => setActiveTab('console')}
-            className={`px-4 py-2 text-sm font-semibold rounded-md transition-all ${
-              activeTab === 'console' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-            }`}
           >
             Operator Console
           </button>
           <button
+            className={`tab-btn${activeTab === 'simulator' ? ' active' : ''}`}
             onClick={() => setActiveTab('simulator')}
-            className={`px-4 py-2 text-sm font-semibold rounded-md transition-all ${
-              activeTab === 'simulator' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-            }`}
           >
             Fault Simulator
           </button>
         </div>
       </header>
 
+      {/* ══════════════════════════════════════════════════════════════════════
+          OPERATOR CONSOLE TAB
+      ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'console' && (
-        <div className="flex-1 grid grid-cols-12 gap-6 p-6 overflow-hidden">
-          <div className="col-span-5 bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-              <h2 className="font-bold text-slate-200 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-400" /> Active Incidents ({incidents.length})
-              </h2>
-              <button onClick={fetchIncidents} className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800">
-                <RefreshCw className="w-4 h-4" />
-              </button>
+        <div className="console-grid">
+
+          {/* ── Left: Incident feed ── */}
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-title">
+                <span className="icon-amber">⚠</span>
+                Active Incidents ({incidents.length})
+              </span>
+              <button className="refresh-btn" onClick={fetchIncidents} title="Refresh">↻</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="panel-body">
               {incidents.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <ShieldCheck className="w-12 h-12 mx-auto mb-2 text-emerald-500/50" />
-                  <p>All lines healthy. No active faults detected.</p>
+                <div className="empty-state">
+                  <span className="empty-icon">✓</span>
+                  All lines healthy. No active faults detected.
                 </div>
               ) : (
                 incidents.map((inc) => (
                   <div
                     key={inc.incident_id}
+                    className={`incident-card${selectedIncident?.incident_id === inc.incident_id ? ' selected' : ''}`}
                     onClick={() => setSelectedIncident(inc)}
-                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                      selectedIncident?.incident_id === inc.incident_id
-                        ? 'border-amber-500 bg-amber-500/10'
-                        : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                    }`}
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs font-mono font-bold text-slate-400">{inc.incident_id}</span>
-                      <span className={`px-2 py-0.5 text-xs font-bold rounded ${
-                        inc.confidence >= 0.85 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-                      }`}>
-                        {(inc.confidence * 100).toFixed(0)}% Confidence
+                    {/* ID + confidence */}
+                    <div className="incident-card-top">
+                      <span className="incident-id">{inc.incident_id}</span>
+                      <span className={`confidence-badge ${inc.confidence >= 0.85 ? 'confidence-high' : 'confidence-low'}`}>
+                        {(inc.confidence * 100).toFixed(0)}% confidence
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-white mb-1 flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-red-400" /> {inc.target_id}
-                    </h3>
-
-                    <p className="text-xs text-slate-400 mb-2">
-                      DT: <span className="font-mono text-slate-300">{inc.dt_id}</span> | PIN: <span className="font-mono text-slate-300">{inc.pincode}</span> | Poles Dark: <span className="text-amber-400 font-bold">{inc.affected_pole_count}</span>
-                    </p>
-
-                    <div className="text-xs text-slate-300 bg-slate-900 p-2 rounded border border-slate-800 mb-3">
-                      {inc.confidence_reasoning}
+                    {/* Target pole/DT */}
+                    <div className="incident-target">
+                      <span className="icon-red">📍</span>
+                      {inc.target_id}
                     </div>
 
-                    <div className="flex gap-2">
+                    {/* Key metadata */}
+                    <div className="incident-meta">
+                      DT: <span>{inc.dt_id}</span> &nbsp;|&nbsp;
+                      PIN: <span>{inc.pincode}</span> &nbsp;|&nbsp;
+                      Poles dark: <strong>{inc.affected_pole_count}</strong>
+                    </div>
+
+                    {/* Localization reasoning */}
+                    <div className="incident-reasoning">{inc.confidence_reasoning}</div>
+
+                    {/* Action buttons */}
+                    <div className="incident-actions">
                       {inc.status === 'DETECTED' && (
                         <button
+                          className="btn btn-blue"
                           onClick={(e) => { e.stopPropagation(); handleAcknowledge(inc.incident_id); }}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded"
                         >
                           Acknowledge
                         </button>
                       )}
                       <button
+                        className="btn btn-green"
                         onClick={(e) => { e.stopPropagation(); handleResolve(inc.incident_id); }}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded"
                       >
-                        Resolve & Verify Telemetry
+                        Resolve &amp; Verify
                       </button>
                     </div>
                   </div>
@@ -184,91 +203,97 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-amber-400" /> Incident Location & Topology Details
-            </h2>
+          {/* ── Right: Detail / topology panel ── */}
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-title">
+                <span className="icon-blue">⌁</span>
+                Incident Location &amp; Topology Details
+              </span>
+            </div>
 
-            {selectedIncident ? (
-              <div className="space-y-4">
-                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-xs text-slate-500">TARGET ASSET</span>
-                    <p className="font-mono font-bold text-amber-400 text-lg">{selectedIncident.target_id}</p>
+            <div className="panel-body">
+              {selectedIncident ? (
+                <>
+                  {/* Key fields grid */}
+                  <div className="detail-grid">
+                    <div className="detail-field">
+                      <label>Target Asset</label>
+                      <div className="val val-amber">{selectedIncident.target_id}</div>
+                    </div>
+                    <div className="detail-field">
+                      <label>GPS Coordinates</label>
+                      <div className="val">{selectedIncident.lat.toFixed(6)}° N, {selectedIncident.lon.toFixed(6)}° E</div>
+                    </div>
+                    <div className="detail-field">
+                      <label>Digitized Topology</label>
+                      <div className="val">
+                        {selectedIncident.topology_known
+                          ? <span className="val-green">100% Digitized Line Tree</span>
+                          : <span className="val-amber-sm">60% Missing — Geometric MST Inferred</span>
+                        }
+                      </div>
+                    </div>
+                    <div className="detail-field">
+                      <label>Affected Households (est.)</label>
+                      <div className="val">{selectedIncident.affected_pole_count * 5} households</div>
+                    </div>
+                    <div className="detail-field">
+                      <label>Status</label>
+                      <div className="val">{selectedIncident.status}</div>
+                    </div>
+                    <div className="detail-field">
+                      <label>Fault Type</label>
+                      <div className="val">{selectedIncident.fault_type}</div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-500">GPS COORDINATES</span>
-                    <p className="font-mono text-slate-200">{selectedIncident.lat.toFixed(6)}° N, {selectedIncident.lon.toFixed(6)}° E</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-500">DIGITIZED TOPOLOGY</span>
-                    <p className="font-bold text-slate-200">
-                      {selectedIncident.topology_known ? (
-                        <span className="text-emerald-400">100% Digitized Line Tree</span>
-                      ) : (
-                        <span className="text-amber-400">60% Missing (Geometrically Inferred MST)</span>
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-500">AFFECTED HOUSES (ESTIMATED)</span>
-                    <p className="font-bold text-white">{selectedIncident.affected_pole_count * 5} Households</p>
-                  </div>
-                </div>
 
-                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <h4 className="text-xs font-bold text-slate-400 mb-2">FAULT BOUNDARY REASONING</h4>
-                  <p className="text-sm text-slate-200">{selectedIncident.confidence_reasoning}</p>
+                  {/* Reasoning */}
+                  <div className="reasoning-box">
+                    <h4>Fault Boundary Reasoning</h4>
+                    <p>{selectedIncident.confidence_reasoning}</p>
+                  </div>
+                </>
+              ) : (
+                <div className="detail-placeholder">
+                  Select an incident from the feed to view topology details.
                 </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-slate-500">
-                Select an incident from the feed to view topology details.
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
 
+      {/* ══════════════════════════════════════════════════════════════════════
+          FAULT SIMULATOR TAB
+      ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'simulator' && (
-        <div className="p-8 max-w-4xl mx-auto space-y-6">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
-            <h2 className="text-xl font-bold text-amber-400 flex items-center gap-2">
-              <Wrench className="w-6 h-6" /> Fault Injection Simulator
-            </h2>
-            <p className="text-sm text-slate-400">
-              Inject synthetic faults into the live Karnataka distribution network to verify real-time localization, deduplication, and ticket auto-closure.
+        <div className="simulator-wrap">
+          <div className="simulator-card">
+            <div className="simulator-title">🔧 Fault Injection Simulator</div>
+            <p className="simulator-desc">
+              Inject synthetic faults into the live Karnataka distribution network to verify
+              real-time localization, sequence-based deduplication, and ticket auto-closure.
             </p>
 
             {simulationStatus && (
-              <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded text-amber-300 text-sm font-mono">
-                {simulationStatus}
-              </div>
+              <div className="status-bar">{simulationStatus}</div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => handleInjectFault('SPAN_FAULT', 'P-0001-02')}
-                className="p-4 bg-slate-950 hover:bg-slate-800 border border-slate-700 rounded-lg text-left"
-              >
-                <div className="font-bold text-white">Inject Known Span Fault</div>
-                <div className="text-xs text-slate-400">Breaks span on digitized 40% DT tree.</div>
+            <div className="sim-grid">
+              <button className="sim-btn" onClick={() => handleInjectFault('SPAN_FAULT', 'P-0001-02')}>
+                <div className="sim-btn-title">Inject Known Span Fault</div>
+                <div className="sim-btn-desc">Breaks a span on the fully-digitized 40% DT tree (topology_known = true).</div>
               </button>
 
-              <button
-                onClick={() => handleInjectFault('SPAN_FAULT', 'P-0002-02')}
-                className="p-4 bg-slate-950 hover:bg-slate-800 border border-slate-700 rounded-lg text-left"
-              >
-                <div className="font-bold text-amber-400">Inject Missing-Topology Span Fault</div>
-                <div className="text-xs text-slate-400">Breaks span on 60% missing-topology MST tree.</div>
+              <button className="sim-btn" onClick={() => handleInjectFault('SPAN_FAULT', 'P-0002-02')}>
+                <div className="sim-btn-title amber">Inject Missing-Topology Span Fault</div>
+                <div className="sim-btn-desc">Breaks a span on a 60% missing-topology tree — localization uses geometric MST.</div>
               </button>
 
-              <button
-                onClick={() => handleInjectFault('DT_FAULT', 'D-0003')}
-                className="p-4 bg-slate-950 hover:bg-slate-800 border border-slate-700 rounded-lg text-left"
-              >
-                <div className="font-bold text-red-400">Inject DT Transformer Blackout</div>
-                <div className="text-xs text-slate-400">Turns entire DT dark at once.</div>
+              <button className="sim-btn" onClick={() => handleInjectFault('DT_FAULT', 'D-0003')}>
+                <div className="sim-btn-title red">Inject DT Transformer Blackout</div>
+                <div className="sim-btn-desc">Turns all poles downstream of DT-0003 dark simultaneously.</div>
               </button>
             </div>
           </div>
